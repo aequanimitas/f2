@@ -14,6 +14,8 @@ defmodule F2 do
     |> loop
   end
 
+  def allocate, do: call(:allocate)
+
   defp predef_frequencies, do: 10..15 |> Enum.to_list
 
   ## GEN
@@ -30,7 +32,7 @@ defmodule F2 do
     receive do
       {:request, from, message} ->
         {new_frequencies, reply} = handle_msg(from, message, frequencies)
-        {:allocate, from, frequencies})
+        {:allocate, from, frequencies}
         reply(from, reply)
         loop(new_frequencies)
       {:EXIT, pid, _reason} ->
@@ -39,28 +41,24 @@ defmodule F2 do
 
   ## internal
   @doc """
-  Links client. If server dies does the client die?
   """
-  def handle_msg(from, :allocate, {[], allocated}} = f), do: {f, {:error, :all_allocated}}
-  def handle_msg(from, :allocate, {[f | freq], allocated}}) do
+  def handle_msg(from, :allocate, {[], allocated} = f), do: {f, {:error, :all_allocated}}
+  def handle_msg(from, :allocate, {[f | freq], allocated}) do
     Process.link(from)
-    {{freq, [{f, from} | allocated]}, {:ok, f}}
+    {{freq, [{from, f} | allocated]}, {:ok, f}}
   end
 
-  def handle_msg(from, {:deallocate, f}, {freqs, allocated}}) do
-    case List.keymember?(allocated, pid, 0) do
+  def handle_msg(_from, {:deallocate, _f}, {freqs, []}) do
+    {{freqs, []}, {:error, :nothing_allocated}}
+  end
+
+  def handle_msg(from, {:deallocate, f}, {freqs, allocated}) do
+    case List.keyfind(allocated, from, 0) do
       {^from, ^f} ->
-        Process.unlink(pid)
-        {{[f | freqs], List.keydelete(allocated, pid, 0)}, {:ok, :deallocate}}
+        Process.unlink(from)
+        {{[f | freqs], List.keydelete(allocated, from, 0)}, {:ok, :deallocate}}
       nil ->
         {allocated, {:error, :not_client}}
     end
-  end
-
-  def allocate
-  def deallocate
-
-  defmodule Client do
-    @moduledoc "Proxy for obtaining frequencies, spawn as many as you want"
   end
 end
