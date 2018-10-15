@@ -38,5 +38,8 @@ defmodule F2Test do
         parent
         |> F2.handle_msg({:deallocate, 10}, {[], [{parent, 10}]})
     end
+
+    test "frequency borrower dies" do
+    end
   end
 end

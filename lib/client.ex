@@ -7,14 +7,14 @@ defmodule Client do
     spawn(__MODULE__, :init, [server_pid])
   end
 
-  def init(args) do
+  def init(server_pid) do
     frequencies = []
     {server_pid, frequencies} 
     |> loop
   end
 
   def call(client_pid, message) do
-    send(client_pid, {:request, from, message})
+    send(client_pid, {:request, self(), message})
     receive do
       {:reply, reply} ->
         reply

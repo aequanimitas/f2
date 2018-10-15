@@ -1,4 +1,7 @@
 defmodule F2 do
+
+  require Logger
+
   def start do
     pid = spawn(__MODULE__, :init, [])
     {pid |> Process.register(__MODULE__), pid}
@@ -15,6 +18,7 @@ defmodule F2 do
   end
 
   def allocate, do: call(:allocate)
+  def deallocate(freq), do: call({:deallocate, freq})
 
   defp predef_frequencies, do: 10..15 |> Enum.to_list
 
@@ -36,11 +40,15 @@ defmodule F2 do
         reply(from, reply)
         loop(new_frequencies)
       {:EXIT, pid, _reason} ->
+        :io.format("a client is dying: ~p~n", [pid])
+        {frequencies, allocated} = exited(pid, frequencies)
+        loop({frequencies, allocated})
     end
   end
 
   ## internal
   @doc """
+  When a frequency has been allocated and the client process dies, the server dies too.
   """
   def handle_msg(from, :allocate, {[], allocated} = f), do: {f, {:error, :all_allocated}}
   def handle_msg(from, :allocate, {[f | freq], allocated}) do
@@ -59,6 +67,16 @@ defmodule F2 do
         {{[f | freqs], List.keydelete(allocated, from, 0)}, {:ok, :deallocate}}
       nil ->
         {allocated, {:error, :not_client}}
+    end
+  end
+
+  def exited(pid, {frequencies, allocated}) do
+    case List.keyfind(allocated, pid, 0) do
+      nil ->
+        {frequencies, allocated}
+      {^pid, value} ->
+        new_allocated = List.keydelete(allocated, pid, 0)
+        {[value | frequencies], new_allocated}
     end
   end
 end
